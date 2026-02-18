@@ -184,7 +184,17 @@ int main(int argc, char * argv[]) {
       std::cout << ( (i==0) ? "[" : "," )
 		<< density[2*i]+density[2*i+1];
     }
-    std::cout << std::endl;
+    std::cout << "]" << std::endl;
+    std::cout << " Sample-based diagonalization: density_alpha = ";
+    for(size_t i=0; i < density.size()/2; i++) {
+      std::cout << ( (i==0) ? "[" : "," ) << density[2*i];
+    }
+    std::cout << "]" << std::endl;
+    std::cout << " Sample-based diagonalization: density_beta = ";
+    for(size_t i=0; i < density.size()/2; i++) {
+      std::cout << ( (i==0) ? "[" : "," ) << density[2*i+1];
+    }
+    std::cout << "]" << std::endl;
     std::cout << " Sample-based diagonalization: carryover bitstrings = [";
     for(size_t i=0; i < std::min(co_adet.size(),static_cast<size_t>(4)); i++) {
       std::cout << ((i==0) ? "" : ", ") << sbd::makestring(co_adet[i],sbd_data.bit_length,L);

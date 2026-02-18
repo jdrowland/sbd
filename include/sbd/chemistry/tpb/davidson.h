@@ -480,9 +480,6 @@ x = 0    1    2    3
 	     adet_comm_size,bdet_comm_size,
 	     helper,I0,I1,I2,
 	     h_comm,b_comm,t_comm);
-    ElemT t;
-    InnerProduct(HC[ib], HC[ib], t, b_comm);
-    std::cout << "  dot(HC) = " << t << std::endl;
 
 #ifdef SBD_DEBUG_DAVIDSON
 	std::cout << " (h,b,t) = ("

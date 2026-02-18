@@ -3,38 +3,20 @@ SBD_PATH=../..
 
 # mpi c++ compiler
 CCCOM=mpicxx
-# CCCOM=/opt/nvidia/hpc_sdk/Linux_x86_64/2025/comm_libs/mpi/bin/mpic++
 
-# flags for build: include path to openmp. The following is the case using homebrew's llvm on Mac
-CCFLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3
+### MSU ICER: NVHPC + CUDA (GPU via Thrust)
+### Modules: NVHPC/23.7-CUDA-12.1.1, OpenMPI/4.1.5-NVHPC-23.7-CUDA-12.1.1,
+###          FlexiBLAS/3.3.1-NVHPC-23.7-CUDA-12.1.1
+### For A100 (SM 80): -gpu=cc80
+### For H200 (SM 90): -gpu=cc90
+CCFLAGS= -mp -cuda -fast --diag_suppress declared_but_not_referenced,set_but_not_used -gpu=cc80 -DSBD_THRUST
+SYSLIB= -lflexiblas
 
+### macOS (Homebrew LLVM + OpenBLAS)
+# CCFLAGS= -std=c++17 -stdlib=libc++ -fopenmp -I/opt/homebrew/opt/llvm/include -O3
+# SYSLIB= -L/opt/homebrew/opt/openblas/lib -llapack -lblas
 
-# accelerate using Thrust
-# CCFLAGS= -mp -cuda -fast -Minfo=accel --diag_suppress declared_but_not_referenced,set_but_not_used -fmax-errors=0 -I/opt/nvidia/hpc_sdk/Linux_x86_64/2025/cuda/include/cccl -I/usr/local/cuda/include -DSBD_THRUST
-#-DSBD_PREFECT
-#-DSBD_DEBUG_MULT
-#-DSBD_THRUST_NO_COLLAPSE
-
-# Specify -gpu=mem:unified option on Grace Hopper environment (?)
-# std::vector between diag and mult will be lost without this option (???)
-# CCFLAGS= -cuda -Minfo=accel -gpu=mem:unified --diag_suppress declared_but_not_referenced,set_but_not_used -fmax-errors=0 -I/opt/nvidia/hpc_sdk/Linux_x86_64/2025/cuda/include/cccl -I/usr/local/cuda/include -DSBD_THRUST
-
-# CPU run
-#CCFLAGS= -mp --diag_suppress declared_but_not_referenced,set_but_not_used -fmax-errors=0 -I/opt/nvidia/hpc_sdk/Linux_x86_64/2025/cuda/include/cccl -I/usr/local/cuda/include -DSBD_DEBUG_MULT
-
-
-# flags for linking: include link to lapack and blas. The following s the case using homebrew's openblas on Mac
-SYSLIB= -L/opt/homebrew/opt/openblas/lib -llapack -lblas
-# SYSLIB= -llapack -lblas
-
-### Example for the Fugaku
-# SBD_PATH=../../
+### Fugaku
 # CCCOM=mpiFCCpx
 # CCFLAGS= -Nclang -std=c++17 -stdlib=libc++ -Kfast,openmp -Xpreprocessor -fopenmp
-# SYSLIB= -SSL2
-#
-### Trad-mode for Fugaku
-# SBD_PATH=../../
-# CCCOM=mpiFCCpx
-# CCFLAGS= -std=c++17 -Kfast,openmp -DSBD_TRADMODE
 # SYSLIB= -SSL2

@@ -1,71 +1,92 @@
-# Library for selected basis diagonalization
+# SBD-SQD: GPU-Accelerated Sample-based Quantum Diagonalization
 
-This is a header-only library for diagonalizing quantum systems in a selected basis, with a focus on handling wavefunction vectors that are too large to fit in the memory of a single node.
-The library leverages MPI-based parallelization to distribute the wavefunction across multiple nodes.
-Command-Line Interface (CLI) applications are provided in the `/apps` directory.
+This is a fork of [r-ccs-cms/sbd](https://github.com/r-ccs-cms/sbd) (Selected Basis Diagonalization), a GPU-accelerated Davidson eigensolver for quantum chemistry developed by Tomonori Shirakawa (RIKEN) and IBM collaborators. We extend it for use as the diagonalization backend in the [Sample-based Quantum Diagonalization (SQD)](https://arxiv.org/abs/2405.05068) algorithm, replacing PySCF's CPU-based Selected CI solver.
 
-## Author
+## Changes from upstream
 
-- Tomonori Shirakawa, RIKEN Center for Computational Science
+Minimal modifications to the C++ code (3 files changed):
 
-## Versions
+- **`apps/.../main.cc`**: Added separate spin-resolved density output (`density_alpha`, `density_beta`) needed by SQD's configuration recovery step. Fixed missing bracket in density output formatting.
+- **`include/.../davidson.h`**: Removed debug print statement from Davidson iteration loop.
+- **`apps/.../Configuration`**: Build configuration for MSU ICER (NVHPC + CUDA + FlexiBLAS).
 
-- **v1.0.0**: Initial public release corresponding to the arXiv submission.
-- **v1.1.0**: Feature additions, refactoring, and bug fixes
-- **v1.2.0**: Feature additions (sbd for general determinant), and bug fixes
-- **v1.3.0**: GPU implementation and refactoring.
+Added files:
 
-## Requirement
+- **`run_sqd.py`**: Python SQD loop that calls SBD for diagonalization. Handles bitstring loading, configuration recovery, subsampling, and convergence checking with checkpoint/resume support.
+- **`submit_sqd.sh`**: Example SLURM batch script for MSU ICER.
 
-- Message Passing Interface (MPI)
-- OpenMP
-- BLAS and LAPACK
+## Requirements
 
-## Install
+**C++ (SBD solver):**
+- NVHPC compiler with CUDA support (tested with NVHPC 23.7, CUDA 12.1)
+- MPI (OpenMPI)
+- LAPACK/BLAS (FlexiBLAS or OpenBLAS)
+- NVIDIA GPU (A100 or H200)
 
-- This code is provided as a header-only llibrary, so no installation is required.
+**Python (SQD loop):**
+- numpy
+- pyscf
+- qiskit-addon-sqd
+- matplotlib
 
-## How to build the Command-Line Interface application codes
+## Building
 
-- The CLI Application code for parallelized selected basis diagonalization for tensor-product basis is located in `apps/chemistry_tpb_selected_basis_diagonalization`.
-- Edit the configuration file to suit your environment and build it with the make command.
-- For more information and options for the executable, see README.md in the same directory.
-- From v1.1.0, the sample code for parallelized selected basis diagonalization for general Hamiltonian written by creation/annihilation operator is added in `apps/caop_selected_basis_diagonalization`.
-- From v1.2.0, the sample code for parallelized selected basis diagonalization for quantum chemistry Hamiltonian in the general determinant basis is added in `apps/chemistry_gdb_selected_basis_diagonalization`.
-- From v1.3.0, the GPU implementation for quantum chemistry Hamiltonian in the tensor-product basis is added.
+```bash
+# On MSU ICER:
+module load NVHPC/23.7-CUDA-12.1.1
+module load OpenMPI/4.1.5-NVHPC-23.7-CUDA-12.1.1
+module load FlexiBLAS/3.3.1-NVHPC-23.7-CUDA-12.1.1
 
-## Documentation
+cd apps/chemistry_tpb_selected_basis_diagonalization
 
-For more details on the input file formats and internal structure, see the [User Manual](https://www.doxygen.nl/manual/doxygen_usage.html).
-You can generate the documentation by running:
+# Edit Configuration to set -gpu=cc80 (A100) or -gpu=cc90 (H200)
+make
 ```
-doxygen ./doc/Doxyfile
+
+This produces the `diag` executable.
+
+## Running
+
+The SQD loop takes quantum measurement data (bitstring counts from IBM hardware) and iteratively refines the ground state energy estimate.
+
+```bash
+python run_sqd.py \
+    --circuit_dir /path/to/circuits \
+    --hamiltonian_dir /path/to/hamiltonians \
+    --results_dir /path/to/results \
+    --sbd_exe ./apps/chemistry_tpb_selected_basis_diagonalization/diag \
+    --output_dir ./output \
+    --max_iterations 2000 \
+    --resume \
+    1 2 3 4 5    # ADAPT iteration indices to include
 ```
 
----
-## Note
-This repository contains research code related to the following paper:
+The positional arguments are ADAPT-VQE iteration indices. A single index runs a "singleton" experiment; multiple indices pool the measurement data ("cumulative").
 
-- **Title:** Closed-loop calculations of electronic structure on a quantum processor and a classical supercomputer at full scale
-- **arXiv:** https://arxiv.org/abs/2511.00224
+### SLURM submission
 
-Version **v1.0.0** corresponds to the code used for the above arXiv submission and represents the initial public release associated with that paper.
+```bash
+sbatch submit_sqd.sh
+```
 
-Subsequent versions (v1.1.0 and later) include additional features, refactoring, and bug fixes, and may go beyond the exact implementation described in the paper.
+This runs singletons for ADAPT 1, 2, 3 and cumulatives [1,2], [1,2,3] as a job array.
 
-The code is shared publicly to support transparency and academic collaboration.  
-If you use this repository in your research, please cite the corresponding arXiv paper.
+## Results
 
----
-This repository also contains research code related to the following paper:
+Energy convergence for the ATP fragment (`atp_0_be2_f4`, 32 orbitals, 32 electrons) using 100k-shot measurements from IBM Boston:
 
-- **Title:** GPU-Accelerated Selected Basis Diagonalization with Thrust for SQD-based Algorithms
-- **arXiv:** https://arxiv.org/abs/2601.16637
+![Energy](plots/singleton_vs_cumulative.png)
 
-The GPU implementation of code is mainly developed by IBM Collaborators.
-Version **v1.3.0** corresponds to the code used for the above arXiv submission and represents the public release associated with the above paper.
+![Iterations](plots/singleton_vs_cumulative_iters.png)
 
----
+## Upstream references
+
+This fork is based on:
+
+- **SBD library**: Tomonori Shirakawa, RIKEN Center for Computational Science — https://github.com/r-ccs-cms/sbd
+  - Paper: [Closed-loop calculations of electronic structure on a quantum processor and a classical supercomputer at full scale](https://arxiv.org/abs/2511.00224)
+  - GPU implementation: [GPU-Accelerated Selected Basis Diagonalization with Thrust for SQD-based Algorithms](https://arxiv.org/abs/2601.16637)
+- **SQD algorithm**: J. Robledo-Moreno et al., [Chemistry Beyond Exact Solutions on a Quantum-Centric Supercomputer](https://arxiv.org/abs/2405.05068)
 
 ## Licence
 

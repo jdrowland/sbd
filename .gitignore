@@ -47,3 +47,12 @@ cmake_install.cmake
 
 
 test/
+
+# ---- SBD binaries ----
+apps/chemistry_tpb_selected_basis_diagonalization/diag
+apps/chemistry_tpb_selected_basis_diagonalization/main.o
+
+# ---- SQD output ----
+results/
+*.pkl
+*.err
